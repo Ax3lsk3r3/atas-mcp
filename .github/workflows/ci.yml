@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+        python-version: [ '3.10', '3.11', '3.12' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Syntax compilation check
+        run: |
+          python -m py_compile server.py atas_client.py test_client.py
+
+      - name: Run automated smoke test suite
+        run: |
+          python test_client.py
+
+      - name: Verify zero emojis in repository files
+        run: |
+          python -c "
+          import os
+
+          def is_emoji(cp):
+              return (
+                  (0x1F300 <= cp <= 0x1FADF) or
+                  (0x1F900 <= cp <= 0x1F9FF) or
+                  (0x1F600 <= cp <= 0x1F64F) or
+                  (0x1F680 <= cp <= 0x1F6FF) or
+                  (0x2600 <= cp <= 0x27BF and cp not in [0x2500, 0x2502, 0x250c, 0x2510, 0x2514, 0x2518, 0x251c, 0x2524, 0x252c, 0x2534, 0x253c, 0x2550, 0x2551]) or
+                  (0x2300 <= cp <= 0x23FF) or
+                  (0x2B50 <= cp <= 0x2B55)
+              )
+
+          violations = []
+          for root, dirs, files in os.walk('.'):
+              if any(k in root for k in ['.git', '__pycache__', 'out', 'bin', 'obj']):
+                  continue
+              for f in files:
+                  p = os.path.join(root, f)
+                  try:
+                      with open(p, 'r', encoding='utf-8', errors='ignore') as fh:
+                          for line_no, line in enumerate(fh, 1):
+                              for ch in line:
+                                  if is_emoji(ord(ch)):
+                                      violations.append((p, line_no, hex(ord(ch))))
+                  except Exception:
+                      pass
+
+          if violations:
+              for v in violations:
+                  print(f'Emoji violation: {v[0]}:{v[1]} U+{v[2]}')
+              raise SystemExit(1)
+          print('Emoji check passed: zero emojis found.')
+          "

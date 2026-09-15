@@ -1,5 +1,12 @@
 # ATAS MCP Bridge
 
+[![CI](https://github.com/Ax3lsk3r3/atas-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Ax3lsk3r3/atas-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python: 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![MCP: 2.0](https://img.shields.io/badge/MCP-2.0-orange.svg)](https://modelcontextprotocol.io/)
+[![Platform: ATAS 7.x & 8.x](https://img.shields.io/badge/ATAS-7.x%20%7C%208.x-green.svg)](https://atas.net/)
+[![Release: v1.0.0](https://img.shields.io/badge/release-v1.0.0-brightgreen.svg)](https://github.com/Ax3lsk3r3/atas-mcp/releases)
+
 Model Context Protocol (MCP) server connecting **ATAS Platform** (7.x) and **ATAS X** (8.x) to AI agents and development assistants.
 
 [Leer en Espanol](README.es.md)
