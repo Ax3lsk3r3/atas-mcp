@@ -172,15 +172,26 @@ All 13 automated tests should pass.
 
 ### 5. Start the MCP Server
 
+The server supports two primary modes:
+
+**Mode A: Stdio (for local desktop IDEs and CLIs):**
 ```bash
 start_mcp.bat
-```
-
-Or execute directly:
-
-```bash
+# or directly:
 python server.py
+# or if installed via pip:
+atas-mcp
 ```
+
+**Mode B: Server-Sent Events (SSE) (for web applications, remote environments, cloud agents):**
+```bash
+start_mcp_sse.bat
+# or directly:
+python server.py --transport sse --host 127.0.0.1 --port 8000
+# or with Docker:
+docker compose up -d
+```
+The SSE endpoint will be available at `http://127.0.0.1:8000/sse` for web chat UIs (LibreChat, Open WebUI, AnythingLLM) and remote agent runners (OpenClaw, LangChain, CrewAI, AutoGen).
 
 ---
 

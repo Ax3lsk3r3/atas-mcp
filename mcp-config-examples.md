@@ -1,20 +1,42 @@
-# ATAS MCP Client Configuration Guide
+# ATAS MCP Client Configuration & Universal Connection Guide
 
-The ATAS MCP server (`server.py`) communicates over standard input/output (stdio) following the Model Context Protocol (MCP) specification. Any MCP-compliant client, IDE, or AI agent runtime can connect to it.
+The ATAS MCP server (`server.py`) supports three connection transports to accommodate any client environment:
+- **stdio (Standard Input/Output):** Recommended for local desktop IDEs, terminal CLIs, and local agent processes.
+- **sse (Server-Sent Events over HTTP):** Recommended for web applications, remote environments, cloud agents, Docker containers, and browser-based AI chats.
+- **streamable-http:** Modern streaming HTTP protocol for stateful and stateless web-native agent architectures.
 
-You can launch the server using either:
-- **Direct script execution:** `python <PATH_TO_ATAS_MCP>/server.py`
-- **Installed CLI command:** run `pip install -e .` in the repository root, then use `atas-mcp`
+---
 
-Replace `<PATH_TO_ATAS_MCP>` in the examples below with the absolute path to your local clone (for example: `C:/Projects/atas-mcp` or `C:\\Projects\\atas-mcp`).
+## Running the Server
+
+### Option A: Local Stdio Mode (Default)
+Used when the client process launches `server.py` directly:
+```bash
+python server.py
+# or via globally installed CLI:
+atas-mcp
+```
+
+### Option B: HTTP / SSE Mode (Port 8000)
+Used when connecting web applications, remote agents, or multiple clients concurrently:
+```bash
+python server.py --transport sse --host 127.0.0.1 --port 8000
+# or on Windows:
+start_mcp_sse.bat
+# or in Docker:
+docker compose up -d
+```
+The SSE endpoint will be live at `http://127.0.0.1:8000/sse` with message routing at `http://127.0.0.1:8000/messages/`.
 
 ---
 
 ## 1. OpenCode
 
-Configuration file:
-- Linux/macOS: `~/.config/opencode/config.json`
-- Windows: `%USERPROFILE%\.config\opencode\config.json` (or `opencode.json` in your project root)
+Website: https://opencode.ai
+Documentation: https://opencode.ai/docs
+
+### Local Desktop / CLI (stdio)
+In `~/.config/opencode/config.json` (Linux/macOS) or `%USERPROFILE%\.config\opencode\config.json` (Windows), or `opencode.json` in your workspace root:
 
 ```json
 {
@@ -22,141 +44,164 @@ Configuration file:
     "atas": {
       "type": "stdio",
       "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>/server.py"
-      ]
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
     }
   }
 }
 ```
 
-If installed via pip:
-
+### Remote Workspace / Web IDE (SSE)
 ```json
 {
   "mcp": {
     "atas": {
-      "type": "stdio",
-      "command": "atas-mcp"
+      "type": "sse",
+      "url": "http://127.0.0.1:8000/sse"
     }
   }
 }
 ```
-
-Reference: [OpenCode Documentation](https://opencode.ai/docs)
 
 ---
 
 ## 2. Qwen Code
 
-CLI command:
+Overview: https://qwenlm.github.io/qwen-code-docs/en/users/overview/
+Repository: https://github.com/QwenLM/qwen-code
 
+### CLI Command (stdio)
 ```bash
 qwen mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
 ```
 
-Or configure directly in `%USERPROFILE%\.qwen\mcp.json`:
+### CLI Command (SSE)
+```bash
+qwen mcp add --type sse atas http://127.0.0.1:8000/sse
+```
 
+### Configuration File (`%USERPROFILE%\.qwen\mcp.json`)
 ```json
 {
   "mcpServers": {
     "atas": {
       "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>/server.py"
-      ]
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
     }
   }
 }
 ```
 
-Reference: [Qwen Code Overview](https://qwenlm.github.io/qwen-code-docs/en/users/overview/)
-
 ---
 
-## 3. Kiro (CLI & IDE)
+## 3. Kiro (CLI & Desktop IDE)
 
-CLI command:
+Website: https://kiro.dev
+CLI Reference: https://kiro.dev/cli/
 
+### Local CLI & Desktop (stdio)
 ```bash
 kiro mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
 ```
 
-Or configure in `%USERPROFILE%\.kiro\mcp.json`:
+### Web & Cloud Environments (SSE)
+```bash
+kiro mcp add --type sse atas http://127.0.0.1:8000/sse
+```
 
+### Configuration File (`%USERPROFILE%\.kiro\mcp.json`)
 ```json
 {
   "mcpServers": {
-    "atas": {
+    "atas-stdio": {
       "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>/server.py"
-      ]
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
+    },
+    "atas-sse": {
+      "url": "http://127.0.0.1:8000/sse"
     }
   }
 }
 ```
-
-Reference: [Kiro Documentation](https://kiro.dev/docs/)
 
 ---
 
 ## 4. Claude Code (CLI)
 
-Add via the Claude Code CLI:
+Product: https://claude.com/product/claude-code
 
+### Stdio Transport
 ```bash
 claude mcp add atas -- python "<PATH_TO_ATAS_MCP>/server.py"
 ```
-
-If installed with `pip install -e .`:
-
+Or if installed via `pip install -e .`:
 ```bash
 claude mcp add atas -- atas-mcp
 ```
 
-Reference: [Claude Code](https://claude.com/product/claude-code)
+### SSE Transport (Remote / Shared)
+```bash
+claude mcp add --transport sse atas http://127.0.0.1:8000/sse
+```
 
 ---
 
-## 5. OpenAI Codex / OpenAI Developers Platform
+## 5. OpenAI Codex / Agents SDK
 
-When building agentic workflows with OpenAI's Developers Platform or Agents SDK:
+Documentation: https://developers.openai.com/
 
+### Stdio Client in Python:
 ```python
+import asyncio
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-server_params = StdioServerParameters(
-    command="python",
-    args=["<PATH_TO_ATAS_MCP>/server.py"],
-)
+async def run():
+    server_params = StdioServerParameters(
+        command="python",
+        args=["<PATH_TO_ATAS_MCP>/server.py"],
+    )
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            print("Connected tools:", [t.name for t in tools.tools])
 
-# Connect and expose ATAS tools to your OpenAI Agent / Responses pipeline
-async with stdio_client(server_params) as (read, write):
-    async with ClientSession(read, write) as session:
-        await session.initialize()
-        tools = await session.list_tools()
-        # Bind tools to OpenAI client
+asyncio.run(run())
 ```
 
-Reference: [OpenAI Developers Platform](https://developers.openai.com/)
+### SSE Client in Python (Web / Microservices):
+```python
+import asyncio
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+
+async def run():
+    async with sse_client("http://127.0.0.1:8000/sse") as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            quote = await session.call_tool("atas_quote", {})
+            print("Quote:", quote.content)
+
+asyncio.run(run())
+```
 
 ---
 
-## 6. OpenClaw
+## 6. OpenClaw (Autonomous Trading Agents)
 
-In your OpenClaw agent configuration (`openclaw.json` or workspace configuration):
+Website: https://openclaw.ai
+Documentation: https://docs.openclaw.ai
 
+In `openclaw.json` or agent runner config:
+
+### Stdio Configuration
 ```json
 {
   "tools": {
     "mcpServers": {
       "atas": {
         "command": "python",
-        "args": [
-          "<PATH_TO_ATAS_MCP>/server.py"
-        ],
+        "args": ["<PATH_TO_ATAS_MCP>/server.py"],
         "cwd": "<PATH_TO_ATAS_MCP>"
       }
     }
@@ -164,61 +209,66 @@ In your OpenClaw agent configuration (`openclaw.json` or workspace configuration
 }
 ```
 
-Reference: [OpenClaw Documentation](https://docs.openclaw.ai/)
+### Remote Container / Web Gateway (SSE)
+```json
+{
+  "tools": {
+    "mcpServers": {
+      "atas": {
+        "type": "sse",
+        "url": "http://127.0.0.1:8000/sse"
+      }
+    }
+  }
+}
+```
 
 ---
 
 ## 7. Kimi Kode
 
-CLI command:
+Website: https://www.kimi.com/code/en
+Documentation: https://www.kimi.com/code/docs/en/
 
+### CLI Command
 ```bash
 kimi mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
 ```
 
-Or configure in `%USERPROFILE%\.kimi\mcp.json`:
-
+### Configuration (`%USERPROFILE%\.kimi\mcp.json`)
 ```json
 {
   "mcpServers": {
     "atas": {
       "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>/server.py"
-      ]
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
     }
   }
 }
 ```
-
-Reference: [Kimi Kode Documentation](https://www.kimi.com/code/docs/en/)
 
 ---
 
 ## 8. Z Code
 
-CLI command:
+Website: https://zcode.z.ai/en/docs/welcome
 
+### CLI Command
 ```bash
 zcode mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
 ```
 
-Or configure in `%USERPROFILE%\.zcode\config.json`:
-
+### Configuration (`%USERPROFILE%\.zcode\config.json`)
 ```json
 {
   "mcpServers": {
     "atas": {
       "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>/server.py"
-      ]
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
     }
   }
 }
 ```
-
-Reference: [Z Code Documentation](https://zcode.z.ai/en/docs/welcome)
 
 ---
 
@@ -226,14 +276,24 @@ Reference: [Z Code Documentation](https://zcode.z.ai/en/docs/welcome)
 
 Configuration file: `%USERPROFILE%\.gemini\config\mcp_config.json`
 
+### Stdio
 ```json
 {
   "mcpServers": {
     "atas": {
       "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>/server.py"
-      ]
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
+    }
+  }
+}
+```
+
+### Remote / SSE
+```json
+{
+  "mcpServers": {
+    "atas": {
+      "url": "http://127.0.0.1:8000/sse"
     }
   }
 }
@@ -245,26 +305,29 @@ Configuration file: `%USERPROFILE%\.gemini\config\mcp_config.json`
 
 Configuration file: `%USERPROFILE%\.cursor\mcp.json`
 
+### Stdio Mode
 ```json
 {
   "mcpServers": {
     "atas": {
       "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>/server.py"
-      ]
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
     }
   }
 }
 ```
 
-Via GUI:
-1. Open Cursor Settings (Ctrl + ,).
-2. Navigate to the MCP section.
-3. Click "Add new MCP server".
-4. Type: `stdio`.
-5. Command: `python`.
-6. Arguments: `<PATH_TO_ATAS_MCP>/server.py`.
+### SSE Mode (Web / Remote Tunnels / Dev Containers)
+```json
+{
+  "mcpServers": {
+    "atas": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8000/sse"
+    }
+  }
+}
+```
 
 ---
 
@@ -277,66 +340,57 @@ Configuration file: `%APPDATA%\Claude\claude_desktop_config.json`
   "mcpServers": {
     "atas": {
       "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>\\server.py"
-      ],
+      "args": ["<PATH_TO_ATAS_MCP>\\server.py"],
       "cwd": "<PATH_TO_ATAS_MCP>"
     }
   }
 }
 ```
 
-Restart Claude Desktop after saving the configuration.
+---
+
+## 12. Web UIs (LibreChat, Open WebUI, AnythingLLM)
+
+Web-based chat interfaces cannot launch local subprocesses on the browser client; they connect directly to an SSE HTTP server:
+
+1. Launch the server in SSE mode:
+   ```bash
+   python server.py --transport sse --host 0.0.0.0 --port 8000
+   ```
+2. In LibreChat (`librechat.yaml`) or Open WebUI MCP Settings:
+   ```yaml
+   mcpServers:
+     atas:
+       type: sse
+       url: http://127.0.0.1:8000/sse
+   ```
 
 ---
 
-## 12. Windsurf / VS Code (Cline / Roo Code)
+## 13. Generic Agent Frameworks (LangChain, CrewAI, AutoGen, LlamaIndex)
 
-Configuration file:
-- Cline: `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
-- Roo Code: `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\cline_mcp_settings.json`
+Any Python, Node.js, Go, or Rust agent framework supporting Model Context Protocol can consume ATAS MCP:
 
-```json
-{
-  "mcpServers": {
-    "atas": {
-      "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>/server.py"
-      ],
-      "disabled": false,
-      "autoApprove": []
-    }
-  }
-}
+```python
+# LangChain / LangGraph with MCP adapter
+from langchain_mcp_adapters.tools import load_mcp_tools
+from mcp.client.sse import sse_client
+
+async with sse_client("http://127.0.0.1:8000/sse") as (read, write):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        tools = await load_mcp_tools(session)
+        # Agent binds tools for trading execution and market analysis
 ```
 
 ---
 
-## Environment Variables
-
-Custom settings can be passed to the MCP server via environment variables:
+## Environment Variables Reference
 
 | Variable | Default | Description |
 |---|---|---|
-| `ATAS_MCP_PORT` | `8787` | Port where the ATAS C# addon HTTP bridge listens. If not set, the port file written by the addon is auto-discovered. |
-| `ATAS_MCP_HOST` | `127.0.0.1` | Host where the HTTP bridge is running. Defaults to local loopback `127.0.0.1`. |
-
-Example using environment variables in MCP JSON:
-
-```json
-{
-  "mcpServers": {
-    "atas": {
-      "command": "python",
-      "args": [
-        "<PATH_TO_ATAS_MCP>/server.py"
-      ],
-      "env": {
-        "ATAS_MCP_PORT": "8787",
-        "ATAS_MCP_HOST": "127.0.0.1"
-      }
-    }
-  }
-}
-```
+| `MCP_TRANSPORT` | `stdio` | Transport protocol: `stdio`, `sse`, or `streamable-http`. |
+| `MCP_HOST` | `127.0.0.1` | Network interface to bind for SSE / streamable-http (use `0.0.0.0` inside Docker). |
+| `MCP_PORT` | `8000` | Port for the MCP server when running in SSE / streamable-http mode. |
+| `ATAS_MCP_HOST` | `127.0.0.1` | Host where the ATAS C# bridge is running. Defaults to `127.0.0.1`. |
+| `ATAS_MCP_PORT` | `8787` | Port where the ATAS C# bridge is listening (auto-detected if omitted). |

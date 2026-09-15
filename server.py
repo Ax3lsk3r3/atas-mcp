@@ -189,8 +189,51 @@ def atas_bridge_log() -> dict[str, Any]:
 
 
 def main() -> None:
-    """Entry point for the ATAS MCP server."""
-    server.run()
+    """Entry point for the ATAS MCP server supporting stdio, sse, and streamable-http."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="ATAS Model Context Protocol (MCP) Server")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse", "streamable-http"],
+        default=os.environ.get("MCP_TRANSPORT", "stdio"),
+        help="Transport protocol: 'stdio' (default, for local clients), 'sse' (for web/remote agents), or 'streamable-http'",
+    )
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("MCP_HOST", "127.0.0.1"),
+        help="Host to bind for SSE or streamable-http (default: 127.0.0.1, use 0.0.0.0 for Docker)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("MCP_PORT", "8000")),
+        help="Port to bind for SSE or streamable-http (default: 8000)",
+    )
+    parser.add_argument(
+        "--atas-port",
+        type=int,
+        default=None,
+        help="Port of the ATAS bridge inside ATAS (default: auto-detected from McpBridge.port or 8787)",
+    )
+    parser.add_argument(
+        "--atas-host",
+        default=None,
+        help="Host where ATAS bridge is running (default: 127.0.0.1)",
+    )
+
+    args = parser.parse_args()
+
+    global _client
+    if args.atas_port is not None or args.atas_host is not None:
+        _client = AtasClient(port=args.atas_port, host=args.atas_host)
+
+    if args.transport == "stdio":
+        server.run(transport="stdio")
+    elif args.transport == "sse":
+        server.run(transport="sse", host=args.host, port=args.port)
+    elif args.transport == "streamable-http":
+        server.run(transport="streamable-http", host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

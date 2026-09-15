@@ -172,15 +172,26 @@ Las 13 pruebas deben finalizar en `ALL TESTS PASSED`.
 
 ### 5. Iniciar el Servidor MCP
 
+El servidor admite dos modos principales de transporte:
+
+**Modo A: Stdio (para IDEs de escritorio locales y terminales CLI):**
 ```bash
 start_mcp.bat
-```
-
-O directamente:
-
-```bash
+# o directamente:
 python server.py
+# o si se instalo con pip:
+atas-mcp
 ```
+
+**Modo B: Server-Sent Events (SSE) (para aplicaciones web, entornos remotos y agentes cloud):**
+```bash
+start_mcp_sse.bat
+# o directamente:
+python server.py --transport sse --host 127.0.0.1 --port 8000
+# o con Docker:
+docker compose up -d
+```
+El endpoint SSE estara activo en `http://127.0.0.1:8000/sse` para interfaces web (LibreChat, Open WebUI, AnythingLLM) y frameworks distribuidos de agentes (OpenClaw, LangChain, CrewAI, AutoGen).
 
 ---
 
