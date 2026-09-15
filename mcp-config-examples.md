@@ -1,83 +1,61 @@
-# Configuracion del servidor MCP de ATAS
+# ATAS MCP Client Configuration Guide
 
-El servidor MCP (`server.py`) se comunica a traves de stdio (estandar de Model Context Protocol). Cualquier cliente compatible puede conectarse ejecutando `python server.py`.
+The ATAS MCP server (`server.py`) communicates over standard input/output (stdio) following the Model Context Protocol (MCP) specification. Any MCP-compliant client, IDE, or AI agent runtime can connect to it.
 
-Ruta del proyecto:
-`C:\Users\ax3lsk3r3\Desktop\atas-mcp`
+You can launch the server using either:
+- **Direct script execution:** `python <PATH_TO_ATAS_MCP>/server.py`
+- **Installed CLI command:** run `pip install -e .` in the repository root, then use `atas-mcp`
+
+Replace `<PATH_TO_ATAS_MCP>` in the examples below with the absolute path to your local clone (for example: `C:/Projects/atas-mcp` or `C:\\Projects\\atas-mcp`).
 
 ---
 
-## 1. Cursor
+## 1. OpenCode
 
-Ubicacion del archivo:
-`%USERPROFILE%\.cursor\mcp.json`
-
-Contenido recomendado:
+Configuration file:
+- Linux/macOS: `~/.config/opencode/config.json`
+- Windows: `%USERPROFILE%\.config\opencode\config.json` (or `opencode.json` in your project root)
 
 ```json
 {
-  "mcpServers": {
+  "mcp": {
     "atas": {
+      "type": "stdio",
       "command": "python",
       "args": [
-        "C:/Users/ax3lsk3r3/Desktop/atas-mcp/server.py"
+        "<PATH_TO_ATAS_MCP>/server.py"
       ]
     }
   }
 }
 ```
 
-O desde la interfaz grafica:
-1. Abre Settings en Cursor (Ctrl + ,).
-2. Busca la seccion MCP.
-3. Haz clic en "Add new MCP server".
-4. Type: stdio.
-5. Command: python.
-6. Arguments: C:\Users\ax3lsk3r3\Desktop\atas-mcp\server.py.
-
----
-
-## 2. Claude Desktop
-
-Ubicacion del archivo:
-`%APPDATA%\Claude\claude_desktop_config.json`
-
-Contenido recomendado:
+If installed via pip:
 
 ```json
 {
-  "mcpServers": {
+  "mcp": {
     "atas": {
-      "command": "python",
-      "args": [
-        "C:\\Users\\ax3lsk3r3\\Desktop\\atas-mcp\\server.py"
-      ],
-      "cwd": "C:\\Users\\ax3lsk3r3\\Desktop\\atas-mcp"
+      "type": "stdio",
+      "command": "atas-mcp"
     }
   }
 }
 ```
 
-Despues de guardar el archivo, reinicia Claude Desktop. En el selector de herramientas apareceran las 12 herramientas `atas_*`.
+Reference: [OpenCode Documentation](https://opencode.ai/docs)
 
 ---
 
-## 3. Claude Code (CLI)
+## 2. Qwen Code
 
-Ejecuta en tu terminal:
+CLI command:
 
 ```bash
-claude mcp add atas -- python "C:\Users\ax3lsk3r3\Desktop\atas-mcp\server.py"
+qwen mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
 ```
 
----
-
-## 4. Antigravity CLI / IDE
-
-Ubicacion del archivo:
-`%USERPROFILE%\.gemini\config\mcp_config.json`
-
-Contenido:
+Or configure directly in `%USERPROFILE%\.qwen\mcp.json`:
 
 ```json
 {
@@ -85,7 +63,176 @@ Contenido:
     "atas": {
       "command": "python",
       "args": [
-        "C:/Users/ax3lsk3r3/Desktop/atas-mcp/server.py"
+        "<PATH_TO_ATAS_MCP>/server.py"
+      ]
+    }
+  }
+}
+```
+
+Reference: [Qwen Code Overview](https://qwenlm.github.io/qwen-code-docs/en/users/overview/)
+
+---
+
+## 3. Kiro (CLI & IDE)
+
+CLI command:
+
+```bash
+kiro mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
+```
+
+Or configure in `%USERPROFILE%\.kiro\mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "atas": {
+      "command": "python",
+      "args": [
+        "<PATH_TO_ATAS_MCP>/server.py"
+      ]
+    }
+  }
+}
+```
+
+Reference: [Kiro Documentation](https://kiro.dev/docs/)
+
+---
+
+## 4. Claude Code (CLI)
+
+Add via the Claude Code CLI:
+
+```bash
+claude mcp add atas -- python "<PATH_TO_ATAS_MCP>/server.py"
+```
+
+If installed with `pip install -e .`:
+
+```bash
+claude mcp add atas -- atas-mcp
+```
+
+Reference: [Claude Code](https://claude.com/product/claude-code)
+
+---
+
+## 5. OpenAI Codex / OpenAI Developers Platform
+
+When building agentic workflows with OpenAI's Developers Platform or Agents SDK:
+
+```python
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+server_params = StdioServerParameters(
+    command="python",
+    args=["<PATH_TO_ATAS_MCP>/server.py"],
+)
+
+# Connect and expose ATAS tools to your OpenAI Agent / Responses pipeline
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        tools = await session.list_tools()
+        # Bind tools to OpenAI client
+```
+
+Reference: [OpenAI Developers Platform](https://developers.openai.com/)
+
+---
+
+## 6. OpenClaw
+
+In your OpenClaw agent configuration (`openclaw.json` or workspace configuration):
+
+```json
+{
+  "tools": {
+    "mcpServers": {
+      "atas": {
+        "command": "python",
+        "args": [
+          "<PATH_TO_ATAS_MCP>/server.py"
+        ],
+        "cwd": "<PATH_TO_ATAS_MCP>"
+      }
+    }
+  }
+}
+```
+
+Reference: [OpenClaw Documentation](https://docs.openclaw.ai/)
+
+---
+
+## 7. Kimi Kode
+
+CLI command:
+
+```bash
+kimi mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
+```
+
+Or configure in `%USERPROFILE%\.kimi\mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "atas": {
+      "command": "python",
+      "args": [
+        "<PATH_TO_ATAS_MCP>/server.py"
+      ]
+    }
+  }
+}
+```
+
+Reference: [Kimi Kode Documentation](https://www.kimi.com/code/docs/en/)
+
+---
+
+## 8. Z Code
+
+CLI command:
+
+```bash
+zcode mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
+```
+
+Or configure in `%USERPROFILE%\.zcode\config.json`:
+
+```json
+{
+  "mcpServers": {
+    "atas": {
+      "command": "python",
+      "args": [
+        "<PATH_TO_ATAS_MCP>/server.py"
+      ]
+    }
+  }
+}
+```
+
+Reference: [Z Code Documentation](https://zcode.z.ai/en/docs/welcome)
+
+---
+
+## 9. Google Antigravity (AGY CLI & IDE)
+
+Configuration file: `%USERPROFILE%\.gemini\config\mcp_config.json`
+
+```json
+{
+  "mcpServers": {
+    "atas": {
+      "command": "python",
+      "args": [
+        "<PATH_TO_ATAS_MCP>/server.py"
       ]
     }
   }
@@ -94,9 +241,9 @@ Contenido:
 
 ---
 
-## 5. Windsurf / Cline / Roo Code (VS Code)
+## 10. Cursor
 
-Para extensiones de VS Code basadas en MCP, anade al bloque `mcpServers`:
+Configuration file: `%USERPROFILE%\.cursor\mcp.json`
 
 ```json
 {
@@ -104,7 +251,58 @@ Para extensiones de VS Code basadas en MCP, anade al bloque `mcpServers`:
     "atas": {
       "command": "python",
       "args": [
-        "C:/Users/ax3lsk3r3/Desktop/atas-mcp/server.py"
+        "<PATH_TO_ATAS_MCP>/server.py"
+      ]
+    }
+  }
+}
+```
+
+Via GUI:
+1. Open Cursor Settings (Ctrl + ,).
+2. Navigate to the MCP section.
+3. Click "Add new MCP server".
+4. Type: `stdio`.
+5. Command: `python`.
+6. Arguments: `<PATH_TO_ATAS_MCP>/server.py`.
+
+---
+
+## 11. Claude Desktop
+
+Configuration file: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "atas": {
+      "command": "python",
+      "args": [
+        "<PATH_TO_ATAS_MCP>\\server.py"
+      ],
+      "cwd": "<PATH_TO_ATAS_MCP>"
+    }
+  }
+}
+```
+
+Restart Claude Desktop after saving the configuration.
+
+---
+
+## 12. Windsurf / VS Code (Cline / Roo Code)
+
+Configuration file:
+- Cline: `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
+- Roo Code: `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\cline_mcp_settings.json`
+
+```json
+{
+  "mcpServers": {
+    "atas": {
+      "command": "python",
+      "args": [
+        "<PATH_TO_ATAS_MCP>/server.py"
       ],
       "disabled": false,
       "autoApprove": []
@@ -115,14 +313,16 @@ Para extensiones de VS Code basadas en MCP, anade al bloque `mcpServers`:
 
 ---
 
-## 6. Variables de entorno opcionales
+## Environment Variables
 
-Si deseas personalizar el puerto o host de comunicacion con el bridge de ATAS:
+Custom settings can be passed to the MCP server via environment variables:
 
-- `ATAS_MCP_PORT`: Puerto HTTP donde escucha el addon (por defecto 8787 o el detectado en `%APPDATA%\ATAS\McpBridge.port`).
-- `ATAS_MCP_HOST`: Host donde se conecta el cliente (por defecto `127.0.0.1`).
+| Variable | Default | Description |
+|---|---|---|
+| `ATAS_MCP_PORT` | `8787` | Port where the ATAS C# addon HTTP bridge listens. If not set, the port file written by the addon is auto-discovered. |
+| `ATAS_MCP_HOST` | `127.0.0.1` | Host where the HTTP bridge is running. Defaults to local loopback `127.0.0.1`. |
 
-Ejemplo en configuracion MCP:
+Example using environment variables in MCP JSON:
 
 ```json
 {
@@ -130,7 +330,7 @@ Ejemplo en configuracion MCP:
     "atas": {
       "command": "python",
       "args": [
-        "C:/Users/ax3lsk3r3/Desktop/atas-mcp/server.py"
+        "<PATH_TO_ATAS_MCP>/server.py"
       ],
       "env": {
         "ATAS_MCP_PORT": "8787",
@@ -140,11 +340,3 @@ Ejemplo en configuracion MCP:
   }
 }
 ```
-
----
-
-## 7. Aviso de seguridad
-
-- El bridge HTTP de ATAS unicamente escucha en interfaces locales (`127.0.0.1` / `localhost`) y no expone puertos a redes externas.
-- Las herramientas de envio y gestion de ordenes (`atas_place_order`, `atas_cancel_order`, `atas_close_position`) ejecutan transacciones directas en la cuenta o portfolio seleccionado en ATAS.
-- Se recomienda operar inicialmente en cuentas de simulacion (DEMO o Replay) antes de utilizar cuentas reales con capital en riesgo.

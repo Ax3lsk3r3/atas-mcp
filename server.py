@@ -188,5 +188,10 @@ def atas_bridge_log() -> dict[str, Any]:
     return _guard(lambda: _client.log())
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Entry point for the ATAS MCP server."""
     server.run()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,260 +1,300 @@
 # ATAS MCP Bridge
 
-Servidor MCP (Model Context Protocol) para conectar ATAS Platform (7.x) y ATAS X (8.x) con agentes de Inteligencia Artificial (Claude Desktop, Cursor, Claude Code, Antigravity CLI, Windsurf, OpenClaw).
+Model Context Protocol (MCP) server connecting **ATAS Platform** (7.x) and **ATAS X** (8.x) to AI agents and development assistants.
 
-Este proyecto expone datos de mercado en tiempo real (cotizaciones, DOM / order flow, velas OHLCV con delta, posiciones, ordenes activas, operaciones ejecutadas) y capacidades completas de ejecucion y gestion de ordenes hacia cualquier cliente compatible con MCP.
+[Leer en Espanol](README.es.md)
 
 ---
 
-## Arquitectura General
+## Overview
+
+ATAS MCP Bridge bridges the gap between institutional-grade order flow trading in ATAS and modern AI models. It exposes real-time market data, full order book depth (DOM), delta volume candles, account positions, open orders, trade executions, and automated order routing directly to AI assistants.
+
+Compatible with all major AI coding agents and MCP clients:
+- **OpenCode**
+- **Qwen Code**
+- **Kiro (CLI & IDE)**
+- **Claude Code**
+- **OpenAI Codex / Developers Platform**
+- **OpenClaw**
+- **Kimi Kode**
+- **Z Code**
+- **Google Antigravity (AGY CLI & IDE)**
+- **Cursor**
+- **Claude Desktop**
+- **Windsurf / VS Code (Cline & Roo Code)**
+
+---
+
+## Architecture
 
 ```
-+------------------------------------+          HTTP / SSE (localhost:8787)         +----------------------+
++------------------------------------+          HTTP / SSE (127.0.0.1:8787)         +----------------------+
 |           ATAS Platform            | <------------------------------------------> |   MCP Server (Py)    |
 |            "MCP Bridge"            |             GET  /api/*                      |      server.py       |
-|    (ChartStrategy en C# / .NET)    |             POST /api/order                  |      (mcp 2.0)       |
+|    (ChartStrategy in C# / .NET)    |             POST /api/order                  |      (mcp 2.0)       |
 +------------------------------------+             GET  /api/stream                 +----------------------+
                                                                                                ^
                                                                                                | MCP (stdio)
                                                                                                v
                                                                                     +----------------------+
-                                                                                    |   Clientes de IA     |
-                                                                                    |   - Cursor           |
-                                                                                    |   - Claude Desktop   |
-                                                                                    |   - Claude Code      |
-                                                                                    |   - Antigravity      |
-                                                                                    |   - OpenClaw         |
+                                                                                    |      AI Clients      |
+                                                                                    |  - OpenCode          |
+                                                                                    |  - Qwen Code         |
+                                                                                    |  - Kiro              |
+                                                                                    |  - Claude Code       |
+                                                                                    |  - OpenAI Codex      |
+                                                                                    |  - OpenClaw          |
+                                                                                    |  - Kimi Kode         |
+                                                                                    |  - Z Code            |
+                                                                                    |  - Antigravity       |
+                                                                                    |  - Cursor            |
+                                                                                    |  - Claude Desktop    |
                                                                                     +----------------------+
 ```
 
-### Flujo de comunicacion:
-1. **Addon C# (ATAS.McpBridge):** Se ejecuta dentro del proceso de ATAS como una `ChartStrategy`. Inicia un listener HTTP/SSE local (`127.0.0.1:8787`).
-2. **Seguridad de hilos (Thread-Safety):** Todas las lecturas y escrituras hacia los objetos de ATAS ocurren exclusivamente en el hilo principal de ATAS (dentro de `OnCalculate`). Las peticiones HTTP entrantes se encolan mediante `ConcurrentQueue` y son procesadas en el siguiente ciclo de calculo/tick. Las consultas de lectura se resuelven de inmediato leyendo snapshots JSON en memoria volatil, sin bloquear el motor de trading.
-3. **Servidor MCP Python (server.py):** Expone 12 herramientas estandarizadas mediante stdio utilizando la especificacion oficial de Model Context Protocol.
-4. **Cliente HTTP Python (atas_client.py):** Modulo ligero sin dependencias externas (utiliza unicamente la libreria estandar de Python) con autodeteccion de puerto dinamico y tolerancia a fallos.
+### Communication Flow:
+1. **C# Addon (`ATAS.McpBridge`):** Runs inside the ATAS process as a native `ChartStrategy`. It hosts an embedded HTTP and Server-Sent Events (SSE) listener on `127.0.0.1:8787`.
+2. **Thread Safety & Lock-Free Design:** All ATAS API calls occur strictly on the main ATAS thread within `OnCalculate()`. Incoming HTTP execution requests are queued in a thread-safe `ConcurrentQueue` and processed on the next tick. Read requests are answered immediately from volatile in-memory JSON snapshots without interrupting market data processing.
+3. **Python MCP Server (`server.py`):** Speaks Model Context Protocol over standard I/O (`stdio`), exposing 12 production-ready tools with robust structured error handling.
+4. **Python HTTP Client (`atas_client.py`):** Zero-dependency client using Python standard library with automated port discovery and environment variable support.
 
 ---
 
-## Herramientas MCP Disponibles (12 Tools)
+## MCP Tools (12 Tools)
 
-| Herramienta | Descripcion | Parametros |
+| Tool | Description | Parameters |
 |---|---|---|
-| `atas_status` | Verifica la conexion con el bridge: simbolo, portfolio, tick size, estado activado, puerto y connector. | Ninguno |
-| `atas_quote` | Cotizacion en vivo: ultimo precio operado, mejor bid y ask con cantidades, desbalance del DOM (volumen acumulado bid/ask), spread y tick size. | Ninguno |
-| `atas_dom` | Libro de ordenes en profundidad (DOM): niveles ordenados de compra (descendente) y venta (ascendente) con precio y volumen. | `levels` (int, default: 15) |
-| `atas_candles` | Historial de velas (hasta 2000 barras) del grafico donde reside la estrategia: apertura, maximo, minimo, cierre, volumen, delta y marca de tiempo, mas la vela en formacion. | Ninguno |
-| `atas_position` | Estado detallado de la posicion abierta: volumen neto, precio promedio, direccion (Buy/Sell), PnL abierto y PnL cerrado. | Ninguno |
-| `atas_orders` | Listado de todas las ordenes de trabajo activas: ID, direccion, tipo, precio, precio de disparo, cantidad ejecutada, cantidad pendiente y estado. | Ninguno |
-| `atas_trades` | Registro de ejecuciones (fills) completadas durante la sesion actual. | Ninguno |
-| `atas_snapshot` | Retorna en una sola llamada el conjunto consolidado: status, quote, dom, candles, orders, position y trades. | Ninguno |
-| `atas_place_order` | Envia una orden al mercado a traves de ATAS. El precio se ajusta automaticamente al tick size del activo. | `direction` ("buy"/"sell"), `order_type` ("limit"/"stop"/"market"/"stoplimit"), `qty` (float), `price` (float opcional), `trigger_price` (float opcional), `comment` (string opcional) |
-| `atas_cancel_order` | Cancela una orden activa identificada por su ID unico. | `order_id` (string) |
-| `atas_close_position` | Cierra (flatten) la posicion actual mediante una orden a mercado en sentido opuesto por el volumen total o parcial indicado. | `volume` (float opcional), `direction` (string opcional) |
-| `atas_bridge_log` | Recupera los ultimos registros de diagnostico generados por el addon dentro de ATAS para facilitar depuracion. | Ninguno |
+| `atas_status` | Returns bridge connectivity status, symbol, portfolio account, tick size, activation state, and active port. | None |
+| `atas_quote` | Live quote snapshot: last price, best bid and ask with volumes, DOM cumulative volume (order flow imbalance), spread, and tick size. | None |
+| `atas_dom` | Full order book depth (DOM): sorted bids (highest first) and asks (lowest first) with exact price and size. | `levels` (int, default: 15) |
+| `atas_candles` | Historical bars (up to 2000 candles) for the chart: open, high, low, close, volume, delta, timestamp, and the current forming candle. | None |
+| `atas_position` | Current open position details: net volume, average entry price, direction (Buy/Sell), open PnL, and closed PnL. | None |
+| `atas_orders` | Working orders: ID, direction, order type, price, trigger price, executed volume, remaining volume, and order state. | None |
+| `atas_trades` | Execution log (fills) completed during the active session. | None |
+| `atas_snapshot` | Consolidates status, quote, DOM, candles, orders, position, and trades in a single call. | None |
+| `atas_place_order` | Places an order through ATAS. Prices are automatically rounded and snapped to instrument tick size. | `direction` ("buy"/"sell"), `order_type` ("limit"/"stop"/"market"/"stoplimit"), `qty` (float), `price` (optional float), `trigger_price` (optional float), `comment` (optional string) |
+| `atas_cancel_order` | Cancels an open working order by its unique ID. | `order_id` (string) |
+| `atas_close_position` | Closes (flattens) the current position using an opposing market order for the full or partial volume. | `volume` (optional float), `direction` (optional string) |
+| `atas_bridge_log` | Retrieves recent diagnostic logs from the C# bridge inside ATAS for debugging. | None |
 
 ---
 
-## Endpoints HTTP y SSE del Bridge
+## HTTP REST and SSE Endpoints
 
-El addon expone los siguientes endpoints REST y eventos SSE en `http://127.0.0.1:8787`:
+The C# addon serves the following endpoints locally at `http://127.0.0.1:8787`:
 
-| Endpoint | Metodo | Descripcion |
+| Endpoint | Method | Description |
 |---|---|---|
-| `/api/health` | GET | Comprobacion rapida de disponibilidad (`{"ok":true,"id":"atas-mcp-bridge","version":"1.0.0"}`). |
-| `/api/status` | GET | Metadatos de la plataforma, grafico, instrumento y cuenta conectada. |
-| `/api/quote` | GET | Snapshot de cotizacion actual, spread y volumen acumulado del DOM. |
-| `/api/dom` | GET | Profundidad de mercado completa (bids y asks ordenados con precio y volumen). |
-| `/api/candles` | GET | Array de hasta 2000 velas completadas mas vela actual en tiempo real. |
-| `/api/orders` | GET | Lista de ordenes activas en el sistema. |
-| `/api/position` | GET | Resumen de la posicion neta calculada a partir de los fills de la estrategia. |
-| `/api/trades` | GET | Registro de ejecuciones de la sesion. |
-| `/api/snapshot` | GET | Consolidado total de estado, cotizacion, DOM, velas, ordenes y posicion. |
-| `/api/log` | GET | Lineas de registro y diagnostico del addon. |
-| `/api/order` | POST | Envio de nueva orden (`{"direction":"buy","type":"limit","qty":1,"price":22000.25}`). |
-| `/api/order/cancel` | POST | Cancelacion de orden existente (`{"id":"<order_id>"}`). |
-| `/api/position/close` | POST | Cierre inmediato de posicion a mercado (`{}`). |
-| `/api/stream` | GET (SSE) | Server-Sent Events en tiempo real: eventos `quote` (200ms throttle), `dom` (500ms throttle), `position` (1000ms throttle), `orderSent`, `orderFailed`, `orderCancelSent`, `flattenSent`. |
+| `/api/health` | GET | Health check (`{"ok":true,"id":"atas-mcp-bridge","version":"1.0.0"}`). |
+| `/api/status` | GET | Metadata: platform version, instrument, security code, portfolio, and tick size. |
+| `/api/quote` | GET | Live ticker, best bid/ask, and cumulative order book imbalance. |
+| `/api/dom` | GET | Full depth of market book snapshot. |
+| `/api/candles` | GET | Array of completed candles plus current active bar. |
+| `/api/orders` | GET | List of working orders. |
+| `/api/position` | GET | Calculated net position and session PnL. |
+| `/api/trades` | GET | Session trade executions (fills). |
+| `/api/snapshot` | GET | All-in-one consolidated payload. |
+| `/api/log` | GET | Diagnostic log buffer. |
+| `/api/order` | POST | Submits a new order (`{"direction":"buy","type":"limit","qty":1,"price":22000.25}`). |
+| `/api/order/cancel` | POST | Cancels an existing order (`{"id":"<order_id>"}`). |
+| `/api/position/close` | POST | Flattens the open position (`{}`). |
+| `/api/stream` | GET (SSE) | Real-time Server-Sent Events: `quote` (200ms throttle), `dom` (500ms throttle), `position` (1000ms throttle), `orderSent`, `orderFailed`, `orderCancelSent`, `flattenSent`. |
 
 ---
 
-## Requisitos del Sistema
+## Prerequisites
 
-- **Sistema Operativo:** Windows 10 / 11 (x64)
-- **ATAS:** ATAS Platform (7.x) o ATAS X (8.x) instalado.
-- **SDK de .NET:** .NET 8 SDK o superior (comprobar con `dotnet --version`).
-- **Python:** Python 3.10 o superior (con pip).
+- **Operating System:** Windows 10 / 11 (x64)
+- **Platform:** ATAS Platform (7.x) or ATAS X (8.x) installed
+- **.NET SDK:** .NET 8 SDK or higher (`winget install Microsoft.DotNet.SDK.8` or `dotnet --version`)
+- **Python:** Python 3.10 or higher with pip
 
 ---
 
-## Guia de Instalacion y Puesta en Marcha
+## Installation and Quickstart
 
-### Paso 1: Instalar dependencias de Python
-Abre una terminal en el directorio del proyecto:
+### 1. Clone the repository and install dependencies
 
 ```bash
-cd C:\Users\ax3lsk3r3\Desktop\atas-mcp
+git clone https://github.com/Ax3lsk3r3/atas-mcp.git
+cd atas-mcp
 pip install -r requirements.txt
 ```
 
-### Paso 2: Compilar y desplegar el addon C#
-Ejecuta el script de construccion:
+Optionally install as an editable package so the `atas-mcp` CLI command is globally available:
+
+```bash
+pip install -e .
+```
+
+### 2. Compile and deploy the C# Addon
+
+Run the build script:
 
 ```bash
 build.bat
 ```
 
-Este script:
-1. Compila `ATAS.McpBridge.csproj` en modo Release utilizando el SDK de .NET.
-2. Despliega automaticamente `ATAS.McpBridge.dll` en las carpetas de estrategias correspondientes:
-   - `%APPDATA%\ATAS\Strategies\` (ATAS Platform clasico)
-   - `%APPDATA%\ATAS X\Strategies\` (ATAS X)
+The script compiles the project in Release mode and copies `ATAS.McpBridge.dll` to both ATAS strategy folders:
+- `%APPDATA%\ATAS\Strategies\` (ATAS Platform 7.x)
+- `%APPDATA%\ATAS X\Strategies\` (ATAS X 8.x)
 
-### Paso 3: Activar la estrategia dentro de ATAS
-1. Inicia ATAS Platform o ATAS X.
-2. Abre un grafico con el instrumento financiero que desees operar (por ejemplo: NQ, ES, BTCUSDT, EURUSD).
-3. Haz clic derecho sobre el grafico -> selecciona **Indicators** (o Agregar Indicador).
-4. En el buscador escribe **MCP Bridge** y anadelo al grafico.
-5. En la ventana de configuracion lateral de la estrategia:
-   - Marca la casilla **`IsActivated`**.
-   - Selecciona tu cuenta o portfolio (se recomienda una cuenta demo/simulacion).
-6. Verifica en tu navegador web que el bridge responde correctamente:
-   - `http://127.0.0.1:8787/api/health`
-   - Debe responder: `{"ok":true,"id":"atas-mcp-bridge","version":"1.0.0"}`
+### 3. Attach the Strategy in ATAS
 
-### Paso 4: Ejecutar el test de verificacion (Smoke Test)
-Puedes validar el funcionamiento del cliente HTTP y el protocolo sin necesidad de tener ATAS abierto:
+1. Launch ATAS (or ATAS X).
+2. Open a chart for the instrument you want to trade (e.g. NQ, ES, BTCUSDT, EURUSD).
+3. Right-click the chart -> select **Indicators** (or Add Indicator).
+4. Search for **MCP Bridge** and add it to the chart.
+5. In the strategy properties panel:
+   - Check the **`IsActivated`** checkbox.
+   - Select your portfolio / account (simulation or demo accounts recommended).
+6. Verify in your web browser:
+   - Navigate to `http://127.0.0.1:8787/api/health`
+   - Expected output: `{"ok":true,"id":"atas-mcp-bridge","version":"1.0.0"}`
+
+### 4. Run the Automated Smoke Test
+
+Verify the Python client against a local mock bridge without launching ATAS:
 
 ```bash
 python test_client.py
 ```
 
-Debe mostrar `ALL TESTS PASSED`.
+All 13 automated tests should pass.
 
-### Paso 5: Arrancar el servidor MCP
-Para lanzar el servidor en modo stdio:
+### 5. Start the MCP Server
 
 ```bash
 start_mcp.bat
 ```
 
+Or execute directly:
+
+```bash
+python server.py
+```
+
 ---
 
-## Configuracion en Clientes de IA
+## Client Integration Examples
 
-### Cursor
-Edita `%USERPROFILE%\.cursor\mcp.json` y anade:
+Detailed setup guides for all supported clients are provided in [mcp-config-examples.md](mcp-config-examples.md).
 
+### OpenCode
+Add to `~/.config/opencode/config.json` or project `opencode.json`:
+```json
+{
+  "mcp": {
+    "atas": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
+    }
+  }
+}
+```
+
+### Qwen Code
+Run via CLI:
+```bash
+qwen mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
+```
+
+### Kiro (CLI & IDE)
+Run via CLI:
+```bash
+kiro mcp add atas python "<PATH_TO_ATAS_MCP>/server.py"
+```
+
+### Claude Code (CLI)
+Run via CLI:
+```bash
+claude mcp add atas -- python "<PATH_TO_ATAS_MCP>/server.py"
+```
+
+### Google Antigravity (AGY)
+Add to `%USERPROFILE%\.gemini\config\mcp_config.json`:
 ```json
 {
   "mcpServers": {
     "atas": {
       "command": "python",
-      "args": [
-        "C:/Users/ax3lsk3r3/Desktop/atas-mcp/server.py"
-      ]
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
+    }
+  }
+}
+```
+
+### Cursor
+Add to `%USERPROFILE%\.cursor\mcp.json`:
+```json
+{
+  "mcpServers": {
+    "atas": {
+      "command": "python",
+      "args": ["<PATH_TO_ATAS_MCP>/server.py"]
     }
   }
 }
 ```
 
 ### Claude Desktop
-Edita `%APPDATA%\Claude\claude_desktop_config.json` y anade:
-
+Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
     "atas": {
       "command": "python",
-      "args": [
-        "C:\\Users\\ax3lsk3r3\\Desktop\\atas-mcp\\server.py"
-      ],
-      "cwd": "C:\\Users\\ax3lsk3r3\\Desktop\\atas-mcp"
+      "args": ["<PATH_TO_ATAS_MCP>\\server.py"],
+      "cwd": "<PATH_TO_ATAS_MCP>"
     }
   }
 }
 ```
 
-### Claude Code (CLI)
-Ejecuta en consola:
+---
 
-```bash
-claude mcp add atas -- python "C:\Users\ax3lsk3r3\Desktop\atas-mcp\server.py"
-```
+## Technical Details
 
-### Antigravity
-Configura en `%USERPROFILE%\.gemini\config\mcp_config.json`:
+1. **ATAS 7.x and 8.x Compatibility:**
+   - Targets .NET 8, which runs natively on ATAS 7.x and forwards cleanly into ATAS X .NET 10 cross-platform runtime.
+   - Uses `IndicatorCandle` for full access to volume and delta statistics.
+   - Price rounding respects `ShrinkPrice(price)` to prevent exchange reject errors.
+   - Full order book depth snapshot extracted via `MarketDepthInfo.GetMarketDepthSnapshot()`.
 
-```json
-{
-  "mcpServers": {
-    "atas": {
-      "command": "python",
-      "args": [
-        "C:/Users/ax3lsk3r3/Desktop/atas-mcp/server.py"
-      ]
-    }
-  }
-}
-```
+2. **Position Tracking:**
+   - In `ChartStrategy`, the net open volume and direction are computed from strategy-specific execution fills (`MyTrades`).
+   - This ensures safe isolation: manual orders outside this strategy do not corrupt the algorithmic tracking of the strategy.
 
-Consulta `mcp-config-examples.md` para detalles adicionales y configuraciones para Windsurf y VS Code Cline.
+3. **Dynamic Port Discovery:**
+   - If port 8787 is occupied, the C# bridge scans ports 8787 through 8807 automatically.
+   - The selected port is stored in `%APPDATA%\ATAS\McpBridge.port` and `%APPDATA%\ATAS X\McpBridge.port`.
+   - `atas_client.py` auto-discovers this file or falls back to the `ATAS_MCP_PORT` environment variable.
 
 ---
 
-## Estructura del Repositorio
+## Troubleshooting
 
-```
-atas-mcp/
-├── ATAS.McpBridge/              # Codigo fuente del Addon C# para ATAS
-│   ├── ATAS.McpBridge.csproj    # Definicion del proyecto .NET (referencias a ensamblados ATAS)
-│   └── McpBridgeStrategy.cs     # ChartStrategy, servidor HTTP, motor SSE y cola concurrente
-├── server.py                    # Servidor MCP stdio con registro de 12 tools atas_*
-├── atas_client.py               # Cliente HTTP en Python nativo (sin dependencias externas)
-├── test_client.py               # Suite de pruebas automatizadas contra mock HTTP
-├── build.bat                    # Script de compilacion y despliegue a carpetas AppData
-├── start_mcp.bat                # Script de inicio rapido del servidor MCP
-├── install_sdk.bat              # Script auxiliar para instalacion del .NET 8 SDK
-├── requirements.txt             # Dependencias Python (mcp>=1.2.0)
-├── mcp-config-examples.md       # Plantillas de configuracion para todos los clientes
-├── ARQUITECTURA.md              # Documentacion tecnica detallada de la arquitectura interna
-└── README.md                    # Documentacion principal del proyecto
-```
-
----
-
-## Detalles Tecnicos y Compatibilidad con la API de ATAS
-
-1. **Version de API de ATAS:**
-   - Verificada contra ensamblados nativos de ATAS 7.x (`ATAS.Strategies.dll`, `ATAS.Indicators.dll`, `ATAS.DataFeedsCore.dll`).
-   - Uso de `IndicatorCandle` (propiedades `Volume`, `Delta`, `Time`, `Open`, `High`, `Low`, `Close`).
-   - Lectura de profundidad mediante `MarketDepthInfo.GetMarketDepthSnapshot()`.
-   - Normalizacion de precios con `ShrinkPrice(price)` para respetar el tick size.
-
-2. **Modelo de Posiciones:**
-   - En `ChartStrategy`, el volumen y sentido neto de la posicion abierta se derivan rigurosamente de los fills de ejecucion propios (`MyTrades`), asegurando consistencia frente a desincronizaciones de cuenta.
-   - Si se abren posiciones manualmente fuera de esta estrategia, `atas_position` reportara exclusivamente la posicion originada y gestionada por la estrategia.
-
-3. **Tolerancia a Puertos Ocupados:**
-   - Si el puerto 8787 se encuentra en uso por otra instancia o proceso, el addon intenta secuencialmente los puertos del 8787 al 8807.
-   - El puerto asignado activamente se persiste en `%APPDATA%\ATAS\McpBridge.port` y `%APPDATA%\ATAS X\McpBridge.port`. El cliente Python lee automaticamente este archivo en cada inicializacion.
-
----
-
-## Resolucion de Problemas (Troubleshooting)
-
-| Sintoma | Causa Probable | Solucion |
+| Issue | Likely Cause | Solution |
 |---|---|---|
-| `dotnet no se reconoce como comando interno o externo` | El SDK de .NET 8 no esta instalado o la variable PATH no se ha actualizado. | Ejecuta `install_sdk.bat` o `winget install Microsoft.DotNet.SDK.8` y abre una terminal nueva. |
-| `http://127.0.0.1:8787/api/health` no responde | La estrategia no esta agregada al grafico o `IsActivated` no esta marcado. | Abre ATAS, agrega `MCP Bridge` desde la ventana de indicadores/estrategias y activa la casilla `IsActivated`. Revisa el archivo `%APPDATA%\ATAS\McpBridge.log`. |
-| Error de permisos de red (Access is denied) | Windows HTTP.sys requiere reserva explicita de URL. | Ejecuta en una consola de Administrador: `netsh http add urlacl url=http://localhost:8787/ user=Todos` (o `user=everyone` segun el idioma de Windows). |
-| La IA informa que no encuentra las herramientas `atas_*` | El cliente MCP no inicio `server.py` o la ruta en el archivo JSON es incorrecta. | Comprueba que la ruta absoluta en `mcp.json` o `claude_desktop_config.json` coincida con la ubicacion real del archivo `server.py`. |
-| Las ordenes no se registran en el broker | La cuenta seleccionada no esta conectada o el portfolio es invalido. | Comprueba en ATAS que la conexion con el broker o data feed este en verde y que hayas seleccionado un portfolio activo en los ajustes de la estrategia. |
+| `dotnet is not recognized` | .NET 8 SDK is missing or PATH is not refreshed. | Run `install_sdk.bat` or `winget install Microsoft.DotNet.SDK.8` and open a fresh terminal. |
+| `http://127.0.0.1:8787/api/health` does not respond | Strategy is not added to a chart or `IsActivated` is unchecked. | Open ATAS, add `MCP Bridge` via chart Indicators, and check `IsActivated`. Check `%APPDATA%\ATAS\McpBridge.log`. |
+| Network Access Denied on port bind | Windows HTTP.sys reservation missing. | Run in an Administrator Command Prompt: `netsh http add urlacl url=http://localhost:8787/ user=Everyone` (or language equivalent). |
+| AI Client cannot find `atas_*` tools | Incorrect path in client MCP configuration file. | Verify that the path in your client JSON points to the absolute path of `server.py` on your machine. |
+| Orders are rejected | Portfolio is not connected or demo connection inactive. | Verify in ATAS that your connector/broker status is green and select a valid portfolio in the strategy settings. |
 
 ---
 
-## Advertencia de Riesgo
+## Risk Disclaimer
 
-El software aqui provisto interactua directamente con plataformas de negociacion bursatil y tiene la capacidad de enviar ordenes ejecutables al mercado. Las operaciones con instrumentos financieros conllevan un riesgo significativo de perdida de capital.
+This software connects directly to financial trading platforms and can place binding orders on financial markets. Trading futures, equities, forex, and cryptocurrencies involves substantial risk of loss and is not suitable for every investor.
 
-- Pruebe exhaustivamente todas las herramientas e interacciones en un entorno simulado (cuentas DEMO o Market Replay) antes de autorizar cualquier operacion con dinero real.
-- Este proyecto se distribuye con fines exclusivamente educativos y tecnicos, sin garantia de rentabilidad ni asesoramiento financiero de ningun tipo.
+- Always test strategies, prompts, and tool calls thoroughly on simulated accounts (DEMO or Market Replay) before deploying capital.
+- This software is distributed strictly for educational and technical automation purposes, without warranty of any kind.
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
