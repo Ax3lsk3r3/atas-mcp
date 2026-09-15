@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- ATAS 7.x runs on the .NET 8 runtime, so we target net8.0-windows.
+         For ATAS 8.x (runs on .NET 10) change this to net10.0-windows. -->
+    <UseWPF>false</UseWPF>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>ATAS.McpBridge</AssemblyName>
+    <RootNamespace>ATAS.McpBridge</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <NoWarn>1705</NoWarn>
+    <!-- benign version-conflict noise between ATAS assemblies -->
+    <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>..\out\</OutputPath>
+    <!-- Where ATAS is installed -->
+    <ATAS_BASE Condition="'$(ATAS_BASE)' == ''">C:\Program Files (x86)\ATAS Platform</ATAS_BASE>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="ATAS.DataFeedsCore">
+      <HintPath>$(ATAS_BASE)\ATAS.DataFeedsCore.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ATAS.Indicators">
+      <HintPath>$(ATAS_BASE)\ATAS.Indicators.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ATAS.Strategies">
+      <HintPath>$(ATAS_BASE)\ATAS.Strategies.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ATAS.Types">
+      <HintPath>$(ATAS_BASE)\ATAS.Types.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Utils.Common">
+      <HintPath>$(ATAS_BASE)\Utils.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

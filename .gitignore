@@ -1,0 +1,21 @@
+# build output
+out/
+ATAS.McpBridge/bin/
+ATAS.McpBridge/obj/
+*.user
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+
+# local logs and runtime artifacts
+McpBridge.log
+McpBridge.port
+*.log
