@@ -3,6 +3,9 @@ out/
 ATAS.McpBridge/bin/
 ATAS.McpBridge/obj/
 *.user
+build/
+dist/
+*.egg-info/
 
 # python
 __pycache__/
